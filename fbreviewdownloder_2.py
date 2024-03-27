@@ -5,15 +5,15 @@ from itertools import zip_longest
 import time
 from datetime import datetime
 from bs4 import BeautifulSoup
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium import webdriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 import requests
-import chromedriver_autoinstaller
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+
 
 # Function to add the year if it is missing
 
@@ -42,19 +42,13 @@ def process_facebook_reviews(page_url, max_scrolls):
         st.error(f"An error occurred while trying to access the URL: {e}")
         return  # Stop execution if there's an error accessing the URL
 
-    chromedriver_autoinstaller.install()
-
-    
     #open browser in background
     chrome_options = Options()
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--disable-gpu')
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--disable-dev-shm-usage')
 
-
-    driver = webdriver.Chrome(options=chrome_options)
-   
+    #driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=chrome_options)
     driver.get(page_url)
 
     #close the login popup which open immediately after loading the website
@@ -202,6 +196,7 @@ def main():
                                data=json_string,
                                file_name="facebook_reviews.json",
                                mime="application/json")
+
 
 if __name__ == '__main__':
     main()
