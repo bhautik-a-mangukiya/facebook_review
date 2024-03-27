@@ -5,6 +5,7 @@ from itertools import zip_longest
 import time
 from datetime import datetime
 from bs4 import BeautifulSoup
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium import webdriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
