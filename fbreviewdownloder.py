@@ -48,8 +48,6 @@ def process_facebook_reviews(page_url, max_scrolls):
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
 
-    from webdriver_manager.chrome import ChromeDriverManager
-
     # Specify ChromeDriver version
     chrome_version = "94.0.4606.61"
     chromedriver_path = ChromeDriverManager(chrome_type="google", version=chrome_version).install()
@@ -207,7 +205,6 @@ def main():
                                data=json_string,
                                file_name="facebook_reviews.json",
                                mime="application/json")
-
 
 if __name__ == '__main__':
     main()
