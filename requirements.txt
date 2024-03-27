@@ -1,6 +1,8 @@
 beautifulsoup4
 selenium
+streamlit
+seleniumbase
 requests
-webdriver_manager
+webdriver-manager
 chromedriver-autoinstaller
 
