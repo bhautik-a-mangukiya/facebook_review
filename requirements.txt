@@ -3,5 +3,4 @@ selenium
 requests
 webdriver_manager==3.5.1
 chromedriver-autoinstaller
-pyppeteer
-nest_asyncio
+webdriver_manager.core
