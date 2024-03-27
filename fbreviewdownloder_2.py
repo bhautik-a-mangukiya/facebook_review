@@ -42,6 +42,8 @@ def process_facebook_reviews(page_url, max_scrolls):
         st.error(f"An error occurred while trying to access the URL: {e}")
         return  # Stop execution if there's an error accessing the URL
 
+    chromedriver_autoinstaller.install()
+
     
     #open browser in background
     chrome_options = Options()
@@ -50,12 +52,9 @@ def process_facebook_reviews(page_url, max_scrolls):
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
 
-    # Initialize webdriver with the specified ChromeDriver path
-    #driver = webdriver.Chrome(executable_path=chromedriver_path, options=chrome_options)
-
 
     driver = webdriver.Chrome(options=chrome_options)
-    #driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+   
     driver.get(page_url)
 
     #close the login popup which open immediately after loading the website
