@@ -5,19 +5,26 @@ from itertools import zip_longest
 import time
 from datetime import datetime
 from bs4 import BeautifulSoup
+import requests
 from selenium import webdriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.chrome.options import Options
-import requests
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.core.os_manager import ChromeType
 
 
-# Function to add the year if it is missing
-
-
+@st.cache_resource
+def get_driver():
+    return webdriver.Chrome(
+        service=Service(
+            ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
+        ),
+        options=options,
+    )
+    
 # Function to process Facebook reviews
 def process_facebook_reviews(page_url, max_scrolls):
     # Define the current year to append in case the date doesn't have a year
@@ -43,12 +50,13 @@ def process_facebook_reviews(page_url, max_scrolls):
         return  # Stop execution if there's an error accessing the URL
 
     #open browser in background
-    chrome_options = Options()
-    chrome_options.add_argument('--headless')
-    chrome_options.add_argument('--disable-gpu')
+    options = Options()
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')
 
     #driver = webdriver.Chrome(options=chrome_options)
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=chrome_options)
+    #driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=chrome_options)
+    driver = get_driver()
     driver.get(page_url)
 
     #close the login popup which open immediately after loading the website
