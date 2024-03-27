@@ -42,12 +42,6 @@ def process_facebook_reviews(page_url, max_scrolls):
         st.error(f"An error occurred while trying to access the URL: {e}")
         return  # Stop execution if there's an error accessing the URL
 
-    # Replace this line with the path to your ChromeDriver executable
-    
-
-    # Initialize webdriver with the specified ChromeDriver path
-    driver = webdriver.Chrome(executable_path=chromedriver_path, options=chrome_options)
-
     
     #open browser in background
     chrome_options = Options()
@@ -55,10 +49,6 @@ def process_facebook_reviews(page_url, max_scrolls):
     chrome_options.add_argument('--disable-gpu')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
-
-    # Specify ChromeDriver version
-    #chrome_version = "94.0.4606.61"
-    #chromedriver_path = ChromeDriverManager(chrome_type="google", version=chrome_version).install()
 
     # Initialize webdriver with the specified ChromeDriver path
     #driver = webdriver.Chrome(executable_path=chromedriver_path, options=chrome_options)
