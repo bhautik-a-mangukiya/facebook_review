@@ -13,6 +13,7 @@ from selenium.webdriver.chrome.options import Options
 import requests
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.firefox import GeckoDriverManager
+from selenium.webdriver.firefox.service import Service as FirefoxService
 
 
 st.set_page_config(page_title="Facebook Review Extractor", page_icon="🌟")
