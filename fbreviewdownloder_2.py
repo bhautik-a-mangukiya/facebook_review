@@ -1,36 +1,34 @@
 import streamlit as st
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
-"""
-## Web scraping on Streamlit Cloud with Selenium
+def get_web_title(url):
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Runs Chrome in headless mode.
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")  # Bypass OS security model
+    chrome_options.add_argument("--disable-dev-shm-usage")
 
-[![Source](https://img.shields.io/badge/View-Source-<COLOR>.svg)](https://github.com/snehankekre/streamlit-selenium-chrome/)
+    # Setup Chrome service
+    service = Service(ChromeDriverManager().install())
 
-This is a minimal, reproducible example of how to scrape the web with Selenium and Chrome on Streamlit's Community Cloud.
+    # Initialize the driver
+    driver = webdriver.Chrome(service=service, options=chrome_options)
 
-Fork this repo, and edit `/streamlit_app.py` to customize this app to your heart's desire. :heart:
-"""
+    driver.get(url)
+    title = driver.title
+    driver.quit()
+    return title
 
-with st.echo():
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
-    from selenium.webdriver.chrome.service import Service
-    from webdriver_manager.chrome import ChromeDriverManager
-    from webdriver_manager.core.os_manager import ChromeType
+st.title('Web Title Fetcher')
 
-    @st.cache_resource
-    def get_driver():
-        return webdriver.Chrome(
-            service=Service(
-                ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
-            ),
-            options=options,
-        )
+# User input for URL
+url = st.text_input('Enter the URL of the website', 'http://www.example.com')
 
-    options = Options()
-    options.add_argument("--disable-gpu")
-    options.add_argument("--headless")
-
-    driver = get_driver()
-    driver.get("http://example.com")
-
-    st.code(driver.page_source)
+# Button to fetch the web page title
+if st.button('Fetch Title'):
+    with st.spinner('Fetching...'):
+        title = get_web_title(url)
+        st.success(f'The title of the page is: {title}')
