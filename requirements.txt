@@ -1,5 +1,5 @@
 beautifulsoup4
-selenium
+selenium>=4.0.0
 streamlit
 seleniumbase
 requests
