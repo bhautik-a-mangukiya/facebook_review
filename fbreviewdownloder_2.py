@@ -47,8 +47,9 @@ def process_facebook_reviews(page_url, max_scrolls):
     options.add_argument('--headless')
     options.add_argument('--disable-gpu')
 
-    #driver = webdriver.Chrome(options=chrome_options)
-    driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(),options=options)
+    
+    service = FirefoxService(executable_path=GeckoDriverManager().install())
+    driver = webdriver.Firefox(service=service, options=options)
     driver.get(page_url)
 
     #close the login popup which open immediately after loading the website
