@@ -5,4 +5,5 @@ seleniumbase
 requests
 webdriver-manager
 chromedriver-autoinstaller
+playwright
 
