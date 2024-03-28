@@ -12,7 +12,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 import requests
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.firefox import GeckoDriverManager
 
 
 st.set_page_config(page_title="Facebook Review Extractor", page_icon="🌟")
@@ -48,7 +48,7 @@ def process_facebook_reviews(page_url, max_scrolls):
     options.add_argument('--disable-gpu')
 
     #driver = webdriver.Chrome(options=chrome_options)
-    driver = webdriver.Firefox(options=options)
+    driver = webdriver.Firefox(executable_path=GeckoDriverManager().install(),options=options)
     driver.get(page_url)
 
     #close the login popup which open immediately after loading the website
