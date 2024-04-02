@@ -9,204 +9,212 @@ from selenium import webdriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.chrome.options import Options
 import requests
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.firefox import GeckoDriverManager
-from selenium.webdriver.firefox.service import Service as FirefoxService
 
-
+# Set up the Streamlit page configuration
 st.set_page_config(page_title="Facebook Review Extractor", page_icon="🌟")
 
-
-# Function to process Facebook reviews
-def process_facebook_reviews(page_url, max_scrolls):
-    # Define the current year to append in case the date doesn't have a year
-    current_year = datetime.now().year
-    
-    def add_year_if_missing(date_str, year):
-        try:
-            # Try to parse the date - if no year is present, ValueError will be raised
-            datetime.strptime(date_str, '%d %B %Y')
-            return date_str  # Date is fine, return as is
-        except ValueError:
-            # Date didn't include a year, so we add it
-            return f'{date_str} {year}'
-    
-    try:
-        response = requests.get(page_url)
-        # If the response status code is not 200 (OK), raise an exception
-        if response.status_code != 200:
-            st.error("Please enter a valid URL. The provided URL is not accessible or does not exist.")
-            return  # Stop execution if the URL is invalid
-    except requests.exceptions.RequestException as e:
-        st.error(f"An error occurred while trying to access the URL: {e}")
-        return  # Stop execution if there's an error accessing the URL
-
-    #open browser in background
+def initialize_webdriver():
+    """
+    Initializes and returns a headless Selenium WebDriver.
+    """
     options = webdriver.FirefoxOptions()
     options.add_argument('--headless')
     options.add_argument('--disable-gpu')
+    driver = webdriver.Firefox(options=options)
+    return driver
 
+def close_login_popup(driver):
+    """
+    Attempts to close the login popup modal on the Facebook page.
     
-    service = FirefoxService(executable_path=GeckoDriverManager().install())
-    driver = webdriver.Firefox(service=service, options=options)
-    driver.get(page_url)
+    Args:
+    driver: Selenium WebDriver instance used to interact with the webpage.
+    """
+    try:
+        button_xpath = "/html/body/div[1]/div/div[1]/div/div[5]/div/div/div[1]/div/div[2]/div/div/div/div[1]/div"
+        button = WebDriverWait(driver, 2).until(EC.element_to_be_clickable((By.XPATH, button_xpath)))
+        button.click()
+    except Exception as e:
+        print(f"Failed to close the login popup: {e}")
 
-    #close the login popup which open immediately after loading the website
-    button = WebDriverWait(driver, 2).until(EC.element_to_be_clickable((By.XPATH, "/html/body/div[1]/div/div[1]/div/div[5]/div/div/div[1]/div/div[2]/div/div/div/div[1]/div"))).click()
+def scroll_and_collect_reviews(driver, reviews_to_fetch):
+    """
+    Scrolls the webpage and collects review elements until the desired number is reached.
+    
+    Args:
+    driver: Selenium WebDriver instance for webpage interaction.
+    reviews_to_fetch: The number of reviews to fetch from the page.
 
-    time.sleep(2)
-
-    #code to scroll the page until it fully loaded with 5 minutes with each iteration
+    Returns:
+    A list of WebElement objects representing the reviews.
+    """
+    items = []
     last_height = driver.execute_script("return document.body.scrollHeight")
 
-    for scroll in range(max_scrolls):
-        # Scroll to the bottom of the page
+    while reviews_to_fetch > len(items):
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-
-        # Wait for the page to load
-        time.sleep(3)  # Adjust the wait time as needed
-
-        # Calculate the new height of the page
+        time.sleep(2)  # Wait for the page to load
         new_height = driver.execute_script("return document.body.scrollHeight")
+        if new_height == last_height:  # Check if the page height has not changed after scrolling
+            break
+        last_height = new_height
 
-        # Check if the page has stopped growing
-        if new_height == last_height:
+        # Find and click 'See More' buttons to load additional content
+        see_more_buttons = driver.find_elements(By.CSS_SELECTOR, 'div.x1i10hfl.xjbqb8w.x1ejq31n.xd10rxx.x1sy0etr.x17r0tee.x972fbf.xcfux6l.x1qhh985.xm0m39n.x9f619.x1ypdohk.xt0psk2.xe8uvvx.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x16tdsg8.x1hl2dhg.xggy1nq.x1a2a7pz.xt0b8zv.xzsf02u.x1s688f[role="button"]')
+        for button in see_more_buttons:
+            try:
+                driver.execute_script("arguments[0].scrollIntoView();", button)
+                driver.execute_script("arguments[0].click();", button)
+                time.sleep(1)  # Allow time for the content to load
+            except Exception as e:
+                print(f"Error clicking a 'See More' button: {e}")
+
+        items = driver.find_elements(By.CLASS_NAME, 'x1yztbdb')
+
+    return items[:reviews_to_fetch]
+
+def extract_review_data(element, current_year):
+    """
+    Extracts data from a single review element.
+    
+    Args:
+    element: The review WebElement to extract data from.
+    current_year: The current year to append to dates that lack a year.
+
+    Returns:
+    A dictionary containing extracted review data.
+    """
+    html_code = element.get_attribute('outerHTML')
+    soup = BeautifulSoup(html_code, 'html.parser')
+    
+    # Extract various pieces of data from the review element
+    anchor_tag = soup.find('a', class_='x1i10hfl x1qjc9v5 xjbqb8w xjqpnuy xa49m3k xqeqjp1 x2hbi6w x13fuv20 xu3j5b3 x1q0q8m5 x26u7qi x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xdl72j9 x2lah0s xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r x2lwn1j xeuugli xexx8yu x4uap5 x18d9i69 xkhd6sd x1n2onr6 x16tdsg8 x1hl2dhg xggy1nq x1ja2u2z x1t137rt x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x1q0g3np x87ps6o x1lku1pv x1a2a7pz xzsf02u x1rg5ohu')
+    name = anchor_tag['aria-label'] if anchor_tag else None
+    image_url = soup.find('image')['xlink:href'] if anchor_tag else None
+    
+    span = soup.find('span', class_='x193iq5w xeuugli x13faqbe x1vvkbs xlh3980 xvmahel x1n0sxbx x6prxxf xvq8zen xo1l8bm xi81zsa')
+    recommendation = span.get_text(separator=' ', strip=True) if span else None
+
+    span_tag = soup.find('span', class_='x4k7w5x x1h91t0o x1h9r5lt x1jfb8zj xv2umb2 x1beo9mf xaigb6o x12ejxvf x3igimt xarpa2k xedcshv x1lytzrv x1t2pt76 x7ja8zs x1qrby5j')
+    date = span_tag.get_text(strip=True) if span_tag else None
+    review_link = span_tag.find('a')['href'] if span_tag else None
+
+    review_text = None
+    review_containers = soup.find_all(['span', 'div'], class_=['x193iq5w xeuugli x13faqbe x1vvkbs xlh3980 xvmahel x1n0sxbx x1lliihq x1s928wv xhkezso x1gmr53x x1cpjm7i x1fgarty x1943h6x xudqn12 x3x7a5m x6prxxf xvq8zen xo1l8bm xzsf02u x1yc453h', 'xzsf02u','xzsf02u xngnso2 xo1l8bm x1qb5hxa'])
+    for container in review_containers:
+        for img in container.find_all('img'):
+            img.replace_with(img.get('alt', ''))
+        text = container.get_text(separator=' ', strip=True)
+        if text:
+            review_text = text
             break
 
-        last_height = new_height # Update the last height
+    # Clean and format the extracted data
+    review_data = {
+        "recommendation": re.sub(r'\s+(?=\.)', '', recommendation) if recommendation else None,
+        "author_title": name,
+        "author_image": image_url,
+        "review_text": review_text,
+        "review_link": review_link,
+        "date": add_year_or_replace_hour(date, current_year) if date else None
+    }
+    return review_data
 
-    see_more_buttons = driver.find_elements(By.CSS_SELECTOR, 'div.x1i10hfl.xjbqb8w.x1ejq31n.xd10rxx.x1sy0etr.x17r0tee.x972fbf.xcfux6l.x1qhh985.xm0m39n.x9f619.x1ypdohk.xt0psk2.xe8uvvx.xdj266r.x11i5rnm.xat24cr.x1mh8g0r.xexx8yu.x4uap5.x18d9i69.xkhd6sd.x16tdsg8.x1hl2dhg.xggy1nq.x1a2a7pz.xt0b8zv.xzsf02u.x1s688f[role="button"]')
 
-    # Iterate over found elements and click each one
-    for button in see_more_buttons:
+def add_year_or_replace_hour(date_str, year):
+    """
+    Adds the current year to a date string if the year is missing, or replaces relative time formats with the current date.
+    
+    Args:
+    date_str: The date string to process.
+    year: The current year to append if necessary.
+
+    Returns:
+    The processed date string with the year appended if it was missing.
+    """
+    if ' h' in date_str:  # If the format is like "6 h", indicating hours ago
+        return datetime.now().strftime('%d %B %Y')  # Return the current date
+    else:
         try:
-            # Scroll into view of the button and then click
-            driver.execute_script("arguments[0].scrollIntoView();", button)
-            # Click the button using JavaScript to avoid potential issues with elements covering the button
-            driver.execute_script("arguments[0].click();", button)
-            # Optional: add a short delay after each click to allow for dynamic content to load
-            time.sleep(1)
-        except Exception as e:
-            print(f"Could not click on a button: {e}")
+            datetime.strptime(date_str, '%d %B %Y')
+            return date_str  # If the date is already complete, return as is
+        except ValueError:
+            return f'{date_str} {year}'  # Append the current year to the date
 
-    elements = driver.find_elements(By.CLASS_NAME, 'x1yztbdb')
+def process_facebook_reviews(page_url, reviews_to_fetch):
+    """
+    Main function to process Facebook reviews from the given page URL.
 
-    #extract the required information
-    names = []
-    images = []
-    recommendations = []
-    dates = []
-    reviews = []
-    review_links = []
-    for element in elements:
-        html_code = element.get_attribute('outerHTML')
-        soup = BeautifulSoup(html_code,'html.parser')
+    Args:
+    page_url: The URL of the Facebook page from which to extract reviews.
+    reviews_to_fetch: The number of reviews to fetch.
 
-        anchor_tag = soup.find('a', class_='x1i10hfl x1qjc9v5 xjbqb8w xjqpnuy xa49m3k xqeqjp1 x2hbi6w x13fuv20 xu3j5b3 x1q0q8m5 x26u7qi x972fbf xcfux6l x1qhh985 xm0m39n x9f619 x1ypdohk xdl72j9 x2lah0s xe8uvvx xdj266r x11i5rnm xat24cr x1mh8g0r x2lwn1j xeuugli xexx8yu x4uap5 x18d9i69 xkhd6sd x1n2onr6 x16tdsg8 x1hl2dhg xggy1nq x1ja2u2z x1t137rt x1o1ewxj x3x9cwd x1e5q0jg x13rtm0m x1q0g3np x87ps6o x1lku1pv x1a2a7pz xzsf02u x1rg5ohu')
-        if anchor_tag:
-            name = anchor_tag['aria-label']
-            image_url = soup.find('image')['xlink:href']
-            names.append(name)
-            images.append(image_url)
+    Returns:
+    A list of dictionaries, each containing data for a single review.
+    """
+    current_year = datetime.now().year
 
-        span = soup.find('span', class_='x193iq5w xeuugli x13faqbe x1vvkbs xlh3980 xvmahel x1n0sxbx x6prxxf xvq8zen xo1l8bm xi81zsa')
-        if span:
-            recommendation = span.get_text(separator=' ', strip=True)
-            recommendations.append(recommendation)  
+    # Attempt to make an initial request to validate the URL
+    try:
+        response = requests.get(page_url)
+        if response.status_code != 200:
+            st.error("Please enter a valid URL. The provided URL is not accessible or does not exist.")
+            return []
+    except requests.exceptions.RequestException as e:
+        st.error(f"An error occurred while trying to access the URL: {e}")
+        return []
 
-        span_tag = soup.find('span', class_='x4k7w5x x1h91t0o x1h9r5lt x1jfb8zj xv2umb2 x1beo9mf xaigb6o x12ejxvf x3igimt xarpa2k xedcshv x1lytzrv x1t2pt76 x7ja8zs x1qrby5j')
-        if span_tag:
-            date = span_tag.get_text(strip=True)
-            review_link = span_tag.find('a')['href']
-            dates.append(date)
-            review_links.append(review_link)
+    # Initialize WebDriver and navigate to the page
+    driver = initialize_webdriver()
+    driver.get(page_url)
 
-        review = soup.find('span', class_=['x193iq5w xeuugli x13faqbe x1vvkbs xlh3980 xvmahel x1n0sxbx x1lliihq x1s928wv xhkezso x1gmr53x x1cpjm7i x1fgarty x1943h6x x4zkp8e x3x7a5m x6prxxf xvq8zen xo1l8bm xzsf02u x1yc453h'])
-        if review:
-            for img in review.find_all('img'):
-                img.replace_with(img.get('alt', ''))
-            review_text = review.get_text()
-            reviews.append(review_text)
+    # Close the login popup if it appears
+    close_login_popup(driver)
 
-        review = soup.find('div', class_=['xzsf02u xngnso2 xo1l8bm x1qb5hxa'])
-        if review:
-            for img in review.find_all('img'):
-                img.replace_with(img.get('alt', ''))
-            review_text = review.get_text(separator=' ',strip=True)
-            reviews.append(review_text)
+    # Scroll through the page and collect reviews
+    items = scroll_and_collect_reviews(driver, reviews_to_fetch + 2)  # Fetch one extra to ensure enough reviews are collected
 
-    #clean the output
+    # Extract data from each review element
+    reviews_data = [extract_review_data(item, current_year) for item in items]
+    reviews_data = reviews_data[1:reviews_to_fetch+1]
 
-    #remove the extra space in recommendation
-    recommendations = [re.sub(r'\s+(?=\.)', '', string) for string in recommendations]
+    # Cleanup and quit the WebDriver
+    driver.quit()
 
-    # Update the dates list with the year added where necessary
-    dates = [add_year_if_missing(date, current_year) for date in dates]
+    return reviews_data
 
-    #save the list in json format
-    output = zip_longest(names, images, recommendations, dates, reviews,review_links)
 
-    json_data = []
-    for name,image,recommendation,date,review,review_link in output:
-        entry = {
-            "recommendation": recommendation if recommendation is not None else  None,
-            "author_title": name if name is not None else None,
-            "author_image": image if image is not None else None,
-            "review_text": review if review is not None else None,
-            "review_link": review_link if review_link is not None else None,
-            "date": date if date is not None else None,
-        }
-        json_data.append(entry)
-    return json_data
-
-# Define the Streamlit app
+# Define the Streamlit UI
 def main():
     st.title('Facebook Page Review Extractor')
 
-    # Input fields for the Facebook page URL and max scrolls
-    page_url = st.text_input('Enter Facebook Page URL', 'https://www.facebook.com/insprimophotography')
-    page_url = page_url + '/reviews'
-    max_scrolls = st.number_input('Enter Max Scrolls', value=10, min_value=1)
+    # User inputs for the Facebook page URL and number of reviews to fetch
+    default_url = 'https://www.facebook.com/insprimophotography'
+    page_url = st.text_input('Enter Facebook Page URL', default_url)
+    page_url += '/reviews'  # Append '/reviews' to navigate directly to the reviews section
+    reviews_to_fetch = st.number_input('Enter Number of Reviews to Fetch', value=10, min_value=1)
 
-    
-    col1, col2 = st.columns(2)  # Create two columns
-
-    with col1:  # This is the first column
-        extract_reviews_pressed = st.button('Extract Reviews')
-
+    col1, col2 = st.columns(2)  # Create two columns for layout
     json_data = None
-    if extract_reviews_pressed:
-        with st.spinner('Fetching and extracting reviews...'):
-        # Call function to process Facebook reviews
-            json_data = process_facebook_reviews(page_url, max_scrolls)
-            st.json(json_data)
 
+    with col1:  # Column for the 'Extract Reviews' button
+        if st.button('Extract Reviews'):
+            with st.spinner('Fetching and extracting reviews...'):
+                json_data = process_facebook_reviews(page_url, reviews_to_fetch)
+                if json_data:
+                    st.success(f'Reviews extracted successfully! Found {len(json_data)} reviews.')
+                    st.json(json_data)  # Display the extracted reviews as JSON in the app
+                else:
+                    st.error('No reviews found or an error occurred during extraction.')
+
+    with col2:  # Column for the 'Download Reviews' button
         if json_data:
-            st.success(f'Reviews extracted successfully! Found {len(json_data["recommendation"])} reviews.')
-            st.json(json_data)
-        else:
-            st.error('No reviews found or an error occurred during extraction.')
-
-
-        if not json_data:
-            st.error('No data to download.')
-            # If there's no data, we don't want to show the download button, so return early
-            return
-
-    with col2:  # This is the second column
-        # Only show the download button if there's data
-        if json_data:
-            # Serialize JSON data into a string
             json_string = json.dumps(json_data, indent=2)
-
-            # Create a download button
             st.download_button(label="Download Reviews as JSON",
                                data=json_string,
                                file_name="facebook_reviews.json",
                                mime="application/json")
-
 
 if __name__ == '__main__':
     main()
